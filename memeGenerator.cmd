@@ -5,7 +5,7 @@ setlocal enabledelayedexpansion
 :top
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 set author=ScavengeR
-set version=1.9.3
+set version=1.9.7
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :: * TODO
 :: 1.0 enhancements and bug-fixes:
@@ -18,6 +18,10 @@ set version=1.9.3
 ::     9.1 fixed PATH
 ::     9.2 fixed spaces in names
 ::     9.3 protect paths using short names
+::     9.4 now applies different size and colors per gravity
+::     9.5 fixed memeNum increment
+::     9.6 now use Colors by name and convert to rgb
+::     9.7 now saves ColorTOP/BOTTOM and Point_SizeTOP/BOTTOM
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 REM convert original.png -fuzz 10% -transparent white transparent.png
@@ -27,15 +31,16 @@ REM magick aaa.png -background "rgba(255,255,0,0.5)" -flatten yellowBackTransp.p
 
 :start
 ::replace S:\wintools\multimedia by your path with magick, pngquant and optipng
-set DEBUG=true
+REM set DEBUG=true
 set "PATH=%PATH%;%~d0\wintools\PortableApps\Magick;%~d0\wintools\multimedia"
 set TITLE=meme Generator %version% by @%author%
 set history=%~sdpn1.ini
 call :set_colors
 
 :defaults
+:: each default you see here will be used as a prompt question, where _ is replaced by space
 :: guess next output file number
-for %%m in ("%~sdpn1-meme-*.%output_Extension%") do set /A memeNum+=1
+set memeNum=1
 
 set labelWidth=30
 set output_Extension=%~x1
@@ -50,18 +55,29 @@ set rsigma=10
 
 set Sharpen_Background=n
 set sharpen=6
+set Point_Size_Ratio=5
+set backgroundAlpha=0.5
+set Scale=100
+
+set Colors=white %r%red %g%green %b%blue %HIGH%%k%grey %END%
+set ColorWhite=255,255,255
+set ColorGrey=224,224,224
+set ColorRed=255,0,0
+set ColorGreen=0,255,0
+set ColorBlue=0,0,255
+
+:: TOP/BOTTOM is really just annotation 1 and 2, gravity decides where they go
+set GRAVITIES_prompt=NorthWest %c%North%END% NorthEast West Center East SouthWest %c%South%END% SouthEast
+set Change_Default_Gravities=n
+set gTOP=North
+set gBOTTOM=South
 
 :: set Point_Size=150 is fairly large for 750x750
-set Point_Size_Ratio=5
+:: TODO: validate the user input for GRAVITIES
+set GRAVITIES=NorthWest North NorthEast West Center East SouthWest South SouthEast
 set Point_Size=150
-set Color=255,255,255
-set Scale=100
-set backgroundAlpha=0.5
+set Color=white
 
-set GRAVITIES=NorthWest %c%North%END% NorthEast West Center East SouthWest %c%South%END% SouthEast
-set Change_Default_Gravities=n
-set gTOP=north
-set gBOTTOM=south
 
 set OPTIONS=
 set keep_Options=y
@@ -84,31 +100,60 @@ call :promptOption Blur_Level Blur_Background
 call :promptOption Radial_Blur
 call :promptOption rsigma Radial_Blur
 call :promptOption Sharpen_Background
+call :promptOption Scale
 
-echo -- chose both Gravities among: %GRAVITIES%
 call :promptOption Change_Default_Gravities
-call :promptOption gTOP Change_Default_Gravities
-call :promptOption gBOTTOM Change_Default_Gravities
+IF /I NOT %Change_Default_Gravities%==n (
+  echo:
+  echo ------------ Default gravities: %GRAVITIES_prompt%
+  call :promptOption gTOP Change_Default_Gravities
+  call :promptOption gBOTTOM Change_Default_Gravities
+)
 
 :menu_text
-call :promptOption Scale
-call :promptOption Point_Size
-call :promptOption Color
+echo:
+IF NOT DEFINED Point_SizeTOP    set Point_SizeTOP=%Point_Size%
+IF NOT DEFINED ColorTOP         set ColorTOP=%Color%
+IF NOT DEFINED Point_SizeBOTTOM set Point_SizeBOTTOM=%Point_Size%
+IF NOT DEFINED ColorBOTTOM      set ColorBOTTOM=%Color%
+
+echo --------------- Default colors: %Colors%
+IF /I %Change_Default_Gravities%==n (
+  call :promptOption Point_Size
+  call :promptOption Color
+) ELSE (
+  call :promptOption Point_SizeTOP
+  call :promptOption ColorTOP
+  echo:
+  call :promptOption Point_SizeBOTTOM
+  call :promptOption ColorBOTTOM
+)
+IF /I %Change_Default_Gravities%==n (
+  set Point_SizeTOP=%Point_Size%
+  set ColorTOP=%Color%
+  set Point_SizeBOTTOM=%Point_Size%
+  set ColorBOTTOM=%Color%
+)
 call :promptOption annotateTOP noshift
 call :promptOption annotateBOTTOM noshift
 
+:: TODO: offer more colors, or a way to detect if user entered rgb in the first place
+call set "rgbColorTOP=%%Color%ColorTOP%%%"
+call set "rgbColorBOTTOM=%%Color%ColorBOTTOM%%%"
+
 :main
-del /f /q "%history%"
-call :putHisto version output_Extension jpegQuality Blur_Background Blur_Level Radial_Blur rsigma Sharpen_Background sharpen Point_Size Color Scale Change_Default_Gravities gTOP annotateTOP gBOTTOM annotateBOTTOM
-:: :setOPTIONS will set memeNum, quality, point size etc
-call :setOPTIONS %1
-REM call :CONVERT %1 "%~sdpn1-meme-%memeNum%-%Color%.%output_Extension%"
-REM call :OPTIMIZE "%~sdpn1-meme-%memeNum%-%Color%.%output_Extension%"
+:: why deleting it? we simply append more and more stuff to it!
+REM del /f /q "%history%"
+call :putHisto version output_Extension jpegQuality Blur_Background Blur_Level Radial_Blur rsigma Sharpen_Background Scale sharpen Change_Default_Gravities gTOP Point_SizeTOP ColorTOP annotateTOP gBOTTOM Point_SizeBOTTOM ColorBOTTOM annotateBOTTOM
+:: :calculateOPTIONS will set memeNum, quality, point size etc
+call :calculateOPTIONS %1
+REM call :CONVERT %1 "%~sdpn1-meme-%memeNum%.%output_Extension%"
+REM call :OPTIMIZE "%~sdpn1-meme-%memeNum%.%output_Extension%"
 call :CONVERT %1 "%~sdpn1-meme-%memeNum%.%output_Extension%"
 call :OPTIMIZE "%~sdpn1-meme-%memeNum%.%output_Extension%"
 
 ::launch the file in your default viewer
-REM start "" "%~sdpn1-meme-%memeNum%-%Color%.%output_Extension%"
+REM start "" "%~sdpn1-meme-%memeNum%.%output_Extension%"
 start "" "%~sdpn1-meme-%memeNum%.%output_Extension%"
 goto :menu
 goto :end
@@ -134,7 +179,7 @@ REM 100 for 772 is ok => ratio is 8
 set /A Point_Size=width/8
 goto :EOF
 
-:setOPTIONS %1
+:calculateOPTIONS %1
 :: set the blur level here: 0x1 to 0x6 heavy blur to 0x30 iPhone blur / single digit for soft blur http://www.imagemagick.org/script/command-line-options.php#blur
 if /i "%Blur_Background%" EQU "y"    set OPTIONS=%OPTIONS% -blur 0x%Blur_Level%
 
@@ -148,21 +193,20 @@ if /i "%Sharpen_Background%" EQU "y" set OPTIONS=%OPTIONS% -sharpen %sharpen%
 set QUALITY=-quality %jpegQuality%
 
 :: https://imagemagick.org/script/color.php
+:: TODO: we base the background color off TOP color only
 set backgroundColor=
-IF NOT "%Color%"=="255,255,255" set "backgroundColor=-background rgba(%Color%,%backgroundAlpha%) -flatten"
+IF NOT "%ColorTOP%"=="255,255,255" set "backgroundColor=-background rgba(%rgbColorTOP%,%backgroundAlpha%) -flatten"
 
 :: https://www.imagemagick.org/Usage/resize/
 set resize=
-IF %Scale% NEQ 100 set "resize=-resize %Scale%%%"
+IF %Scale%     NEQ 100 set "resize=-resize %Scale%%%"
 
-set /A scaledPoint_Size=Point_Size*Scale/100
+set /A scaledPoint_SizeTOP=   Point_SizeTOP   *Scale/100
+set /A scaledPoint_SizeBOTTOM=Point_SizeBOTTOM*Scale/100
 
-set memeNum=1
-for /f %%f in ('dir /b %~sdpn1-meme-*.*') DO (
-  set /A memeNum+=1
-)
+for %%m in ("%~sdpn1-meme-?.%output_Extension%") do set /A memeNum+=1
 
-REM call :logDEBUG output= %~n1-meme-%memeNum%-%Color%.%output_Extension%
+REM call :logDEBUG output= %~n1-meme-%memeNum%.%output_Extension%
 call :logDEBUG output= %~n1-meme-%memeNum%.%output_Extension%
 goto :EOF
 
@@ -267,21 +311,21 @@ rem exit
 
 :CONVERT input output
 call :logDEBUG magick convert %1 %OPTIONS% ^
-%resize% ^
--gravity %gTOP% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_Size% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateTOP%" -blur 0x1  ^) ^
--composite -font Impact -pointsize %scaledPoint_Size% -fill rgba^(%Color%,1^) -stroke none      -annotate 0 "%annotateTOP%" ^
--gravity %gBOTTOM% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_Size% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateBOTTOM%" -blur 0x1  ^) ^
--font Impact -pointsize %scaledPoint_Size% -fill rgba(%Color%,1) -stroke none      -annotate 0 "%annotateBOTTOM%" -composite ^
+%resizeTOP% ^
+-gravity %gTOP% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_SizeTOP% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateTOP%" -blur 0x1  ^) ^
+-composite -font Impact -pointsize %scaledPoint_SizeTOP% -fill rgba^(%rgbColorTOP%,1^) -stroke none      -annotate 0 "%annotateTOP%" ^
+-gravity %gBOTTOM% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_SizeBOTTOM% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateBOTTOM%" -blur 0x1  ^) ^
+-font Impact -pointsize %scaledPoint_SizeBOTTOM% -fill rgba(%rgbColorBOTTOM%,1) -stroke none      -annotate 0 "%annotateBOTTOM%" -composite ^
 %backgroundColor% ^
 %QUALITY% ^
 %2
 
 magick convert %1 %OPTIONS% ^
 %resize% ^
--gravity %gTOP% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_Size% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateTOP%" -blur 0x1  ^) ^
--composite -font Impact -pointsize %scaledPoint_Size% -fill rgba(%Color%,1) -stroke none      -annotate 0 "%annotateTOP%" ^
--gravity %gBOTTOM% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_Size% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateBOTTOM%" -blur 0x1  ^) ^
--font Impact -pointsize %scaledPoint_Size% -fill rgba(%Color%,1) -stroke none      -annotate 0 "%annotateBOTTOM%" -composite ^
+-gravity %gTOP% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_SizeTOP% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateTOP%" -blur 0x1  ^) ^
+-composite -font Impact -pointsize %scaledPoint_SizeTOP% -fill rgba(%rgbColorTOP%,1) -stroke none      -annotate 0 "%annotateTOP%" ^
+-gravity %gBOTTOM% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_SizeBOTTOM% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateBOTTOM%" -blur 0x1  ^) ^
+-font Impact -pointsize %scaledPoint_SizeBOTTOM% -fill rgba(%rgbColorBOTTOM%,1) -stroke none      -annotate 0 "%annotateBOTTOM%" -composite ^
 %backgroundColor% ^
 %QUALITY% ^
 %2
@@ -293,7 +337,8 @@ goto :EOF
 REM call S:\wintools\multimedia\pngquant-optimizer+ordered-q10.cmd inplace "%~sdpn1-meme-%memeNum%.png"
 if /I "%~x1"==".png" (
   echo.%HIGH%%k%
-  call pngquant-optimizer-quality_v1.cmd inplace %1 colors256 quality50-70
+  REM :: BUG: occasionally, pngquant will fail if max quality<96 ... how do we deal with this?
+  call pngquant-optimizer-quality_v1.cmd inplace %1 colors256 quality1-80
   echo.%END%
 )
 goto :EOF
@@ -306,10 +351,11 @@ goto :EOF
 
 :putHisto tag[s]
 for %%t in (%*) DO (call echo %%t=%%%%t%%)>>"%history%"
+echo:>>"%history%"
 goto :EOF
 
 :set_colors
-set colorCompatibleVersions=-8-8.1-10-2016-2019-
+set colorCompatibleVersions=-8-8.1-10-11-2016-2019-2022-
 IF DEFINED WindowsVersion IF "%colorCompatibleVersions:-!WindowsVersion!-=_%"=="%colorCompatibleVersions%" exit /b 1
 
 set END=[0m
