@@ -1,4 +1,5 @@
 @echo OFF
+echo meme Generator 1.3
 set PATH=%PATH%;S:\wintools\PortableApps\Magick;S:\wintools\multimedia
 ::replace S:\wintools\multimedia by your path with magick, pngquant and optipng
 pushd %~dp1
@@ -152,14 +153,16 @@ rem %~dpn1-meme.%extension%
 rem pause
 rem exit
 :::::::::::::::::::::::::::::::::::::::::::::::::
+set transparency=0.7
+
 :CONVERT
 magick convert %1 %OPTIONS% ^
   -gravity %gTOP% ^
-  ( -size %SIZE% xc:none -font Impact -pointsize %pointSize% -stroke black -strokewidth 7 -annotate 0 "%top%" -blur 0x1  ) -composite ^
-  -font Impact -pointsize %pointSize% -fill white -stroke none      -annotate 0 "%top%" ^
+  ( -size %SIZE% xc:none -font Impact -pointsize %pointSize% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%top%" -blur 0x1  ) -composite ^
+  -font Impact -pointsize %pointSize% -fill rgba(255,255,255,1) -stroke none      -annotate 0 "%top%" ^
   -gravity %gBOTTOM% ^
-  ( -size %SIZE% xc:none -font Impact -pointsize %pointSize% -stroke black -strokewidth 7 -annotate 0 "%bottom%" -blur 0x1  ) ^
-  -font Impact -pointsize %pointSize% -fill white -stroke none      -annotate 0 "%bottom%" -composite ^
+  ( -size %SIZE% xc:none -font Impact -pointsize %pointSize% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%bottom%" -blur 0x1  ) ^
+  -font Impact -pointsize %pointSize% -fill rgba(255,255,255,1) -stroke none      -annotate 0 "%bottom%" -composite ^
   %QUALITY% ^
   "%~n1-meme.%extension%"
 ::
