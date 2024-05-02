@@ -5,7 +5,7 @@ setlocal enabledelayedexpansion
 :top
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 set author=ScavengeR
-set version=1.9
+set version=1.9.2
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :: * TODO
 :: 1.0 enhancements and bug-fixes:
@@ -15,6 +15,8 @@ set version=1.9
 ::     7.  added debug mode and text/background colors
 ::     8.  set Point_Size=f(SIZE)
 ::     9.  cosmetics + :logDEBUG
+::     9.1 fixed PATH
+::     9.2 fixed spaces in names
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 REM convert original.png -fuzz 10% -transparent white transparent.png
@@ -25,10 +27,9 @@ REM magick aaa.png -background "rgba(255,255,0,0.5)" -flatten yellowBackTransp.p
 :start
 ::replace S:\wintools\multimedia by your path with magick, pngquant and optipng
 set DEBUG=true
-set "PATH=%PATH%;S:\wintools\PortableApps\Magick;S:\wintools\multimedia"
+set "PATH=%PATH%;%~d0\wintools\PortableApps\Magick;%~d0\wintools\multimedia"
 set TITLE=meme Generator %version% by @%author%
-set filename=%~n1
-set history=%~n1.ini
+set history=%~dpn1.ini
 call :set_colors
 
 :defaults
@@ -96,7 +97,7 @@ call :promptOption annotateTOP noshift
 call :promptOption annotateBOTTOM noshift
 
 :main
-del /f /q %history%
+del /f /q "%history%"
 call :putHisto version output_Extension jpegQuality Blur_Background Blur_Level Radial_Blur rsigma Sharpen_Background sharpen Point_Size Color Scale Change_Default_Gravities gTOP annotateTOP gBOTTOM annotateBOTTOM
 :: :setOPTIONS will set memeNum, quality, point size etc
 call :setOPTIONS %1
@@ -293,13 +294,13 @@ if /I "%~x1"==".png" (
 goto :EOF
 
 :getHisto [tag]
-IF EXIST %history% (
-  IF "%1"=="" (for /f "tokens=*" %%t in (%history%) do set "%%t") ELSE for /f "tokens=*" %%t in ('findstr /I /B %1 %history%') do set "%%t"
+IF EXIST "%history%" (
+  IF "%1"=="" (for /f "tokens=*" %%t in ('type "%history%"') do set "%%t") ELSE for /f "tokens=*" %%t in ('findstr /I /B %1 "%history%"') do set "%%t"
 ) ELSE exit /b 1
 goto :EOF
 
 :putHisto tag[s]
-for %%t in (%*) DO (call echo %%t=%%%%t%%)>>%history%
+for %%t in (%*) DO (call echo %%t=%%%%t%%)>>"%history%"
 goto :EOF
 
 :set_colors
