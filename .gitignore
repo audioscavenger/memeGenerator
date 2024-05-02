@@ -1,5 +1,7 @@
-*.swp
-*.tmp
+# ---> this project
+**/backup
+*.cfg_custom.cmd
+commit.*.txt
 *.zip
 *.7z
 
