@@ -1,65 +1,165 @@
 @echo OFF
-echo meme Generator 1.3
-set PATH=%PATH%;S:\wintools\PortableApps\Magick;S:\wintools\multimedia
-::replace S:\wintools\multimedia by your path with magick, pngquant and optipng
 pushd %~dp1
+setlocal enabledelayedexpansion
 
-set pointSize=50
-::JPEG quality 75
-set QUALITY=-quality 75
-set extension=jpg
-set blurLevel=1
+:top
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+set author=ScavengeR
+set version=1.9
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: * TODO
+:: 1.0 enhancements and bug-fixes:
+::     4.  complete menu ovrehaul
+::     5.  complete history overhaul
+::     6.  complete prompt options overhaul with dependent options
+::     7.  added debug mode and text/background colors
+::     8.  set Point_Size=f(SIZE)
+::     9.  cosmetics + :logDEBUG
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+REM convert original.png -fuzz 10% -transparent white transparent.png
+REM where the smaller the fuzz %, the closer to true white or conversely, the larger the %, the more variation from white is allowed to become transparent
+
+REM magick aaa.png -background "rgba(255,255,0,0.5)" -flatten yellowBackTransp.png
+
+:start
+::replace S:\wintools\multimedia by your path with magick, pngquant and optipng
+set DEBUG=true
+set "PATH=%PATH%;S:\wintools\PortableApps\Magick;S:\wintools\multimedia"
+set TITLE=meme Generator %version% by @%author%
+set filename=%~n1
+set history=%~n1.ini
+call :set_colors
+
+:defaults
+:: guess next output file number
+for %%m in ("%~dpn1-meme-*.%output_Extension%") do set /A memeNum+=1
+
+set labelWidth=30
+set output_Extension=%~x1
+set output_Extension=%output_Extension:.=%
+set jpegQuality=50
+
+set Blur_Background=n
+set Blur_Level=1
+
+set Radial_Blur=n
 set rsigma=10
-set OPTIONS=
-set defaultGravity=y
+
+set Sharpen_Background=n
+set sharpen=6
+
+:: set Point_Size=150 is fairly large for 750x750
+set Point_Size_Ratio=5
+set Point_Size=150
+set Color=255,255,255
+set Scale=100
+set backgroundAlpha=0.5
+
+set GRAVITIES=NorthWest %c%North%END% NorthEast West Center East SouthWest %c%South%END% SouthEast
+set Change_Default_Gravities=n
 set gTOP=north
 set gBOTTOM=south
-set GRAVITIES=NorthWest North NorthEast West Center East SouthWest South SouthEast
 
-if exist meme-history-extension.log for /f "tokens=*" %%t in ('tail -1 meme-history-extension.log') do set extension=%%t
-set /p extension=extension [%extension%]? 
-if "x%extension%x" NEQ "xx" (echo %extension%)>>meme-history-extension.log
+set OPTIONS=
+set keep_Options=y
 
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:menu
+echo.
+set backgroundColor=
+
+call :getSIZE %1
+call :calculatePoint_Size %width%
+call :getHisto && call :promptOption keep_Options
+if /i "%keep_Options%" EQU "y" goto :menu_text
+
+call :promptOption output_Extension
 ::You can certainly combine blur with sharpen and any other filter you can think of for crazy results
-set /p blurBackground=Blur Background [N/y]? 
+call :promptOption Blur_Background
+call :promptOption Blur_Level Blur_Background
+call :promptOption Radial_Blur
+call :promptOption rsigma Radial_Blur
+call :promptOption Sharpen_Background
+
+echo -- chose both Gravities among: %GRAVITIES%
+call :promptOption Change_Default_Gravities
+call :promptOption gTOP Change_Default_Gravities
+call :promptOption gBOTTOM Change_Default_Gravities
+
+:menu_text
+call :promptOption Scale
+call :promptOption Point_Size
+call :promptOption Color
+call :promptOption annotateTOP noshift
+call :promptOption annotateBOTTOM noshift
+
+:main
+del /f /q %history%
+call :putHisto version output_Extension jpegQuality Blur_Background Blur_Level Radial_Blur rsigma Sharpen_Background sharpen Point_Size Color Scale Change_Default_Gravities gTOP annotateTOP gBOTTOM annotateBOTTOM
+:: :setOPTIONS will set memeNum, quality, point size etc
+call :setOPTIONS %1
+call :CONVERT %1 "%~dpn1-meme-%memeNum%-%Color%.%output_Extension%"
+call :OPTIMIZE "%~dpn1-meme-%memeNum%-%Color%.%output_Extension%"
+
+::launch the file in your default viewer
+start "" "%~dpn1-meme-%memeNum%-%Color%.%output_Extension%"
+goto :menu
+goto :end
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+:promptOption option [dependent|noshift]
+IF NOT "%2"=="" (call set dependent=%%%2%%) ELSE set dependent=y
+IF /I "%dependent%"=="n" exit /b 0
+
+call set label=%1? 
+set label=%label:_= %                                     
+call set labelOption=%%%1%%
+call :len labelOption || set /A labelLeft=labelWidth-!ERRORLEVEL!-2
+IF /I "%2"=="noshift" set /A labelLeft=labelWidth-2
+
+set label=!label:~0,%labelLeft%!
+set /p %1=%label% [%y%%labelOption%%END%] 
+goto :EOF
+
+:calculatePoint_Size
+REM 100 for 772 is ok => ratio is 8
+set /A Point_Size=width/8
+goto :EOF
+
+:setOPTIONS %1
 :: set the blur level here: 0x1 to 0x6 heavy blur to 0x30 iPhone blur / single digit for soft blur http://www.imagemagick.org/script/command-line-options.php#blur
-if /i "x%blurBackground%x" EQU "xyx" set /p blurLevel=Blur Level [1]? 
-if /i "x%blurBackground%x" EQU "xyx" set OPTIONS=-blur 0x%blurLevel%
+if /i "%Blur_Background%" EQU "y"    set OPTIONS=%OPTIONS% -blur 0x%Blur_Level%
 
-set /p radialBlur=Radial Blur [N/y]? 
 :: rsigma: 5-30
-if /i "x%radialBlur%x" EQU "xyx" set /p rsigma=rsigma [10]? 
-if /i "x%radialBlur%x" EQU "xyx" set OPTIONS=%OPTIONS% -virtual-pixel edge -distort DePolar -1 -morphology Convolve Blur:0x%rsigma%,90 -virtual-pixel HorizontalTile -background black -distort Polar -1
+if /i "%Radial_Blur%" EQU "y"        set OPTIONS=%OPTIONS% -virtual-pixel edge -distort DePolar -1 -morphology Convolve Blur:0x%rsigma%,90 -virtual-pixel HorizontalTile -background black -distort Polar -1
 
-set /p sharpenBackground=Sharpen Background [N/y]? 
 :: sharpen level 0x6 gives an old school, badass look to the image http://www.imagemagick.org/script/command-line-options.php#sharpen
 :: -adaptive-sharpen 4x6 = Adjust sharpening so that it is restricted to close to image edges as defined by edge detection.
-if /i "x%sharpenBackground%x" EQU "xyx" set OPTIONS=%OPTIONS% -sharpen 6
+if /i "%Sharpen_Background%" EQU "y" set OPTIONS=%OPTIONS% -sharpen %sharpen%
 
-call :GRAVITY
+set QUALITY=-quality %jpegQuality%
 
-if exist meme-history-top.log for /f "tokens=*" %%t in ('tail -1 meme-history-top.log') do set top=%%t
-set /p top=TEXT top [%top%]? 
-if "x%top%x" NEQ "xx" (echo %top%)>>meme-history-top.log
+:: https://imagemagick.org/script/color.php
+set backgroundColor=
+IF NOT "%Color%"=="255,255,255" set "backgroundColor=-background rgba(%Color%,%backgroundAlpha%) -flatten"
 
-if exist meme-history-bottom.log for /f "tokens=*" %%b in ('tail -1 meme-history-bottom.log') do set bottom=%%b
-set /p bottom=TEXT bottom [%bottom%]? 
-if "x%bottom%x" NEQ "xx" (echo %bottom%)>>meme-history-bottom.log
+:: https://www.imagemagick.org/Usage/resize/
+set resize=
+IF %Scale% NEQ 100 set "resize=-resize %Scale%%%"
 
-set /p pointSize=pointSize [%pointSize%]? 
+set /A scaledPoint_Size=Point_Size*Scale/100
 
-call :IDENTIFY %1
-call :CONVERT %1
-call :OPTIMIZE %1
-goto :END
+set memeNum=1
+for /f %%f in ('dir /b %~dpn1-meme-*.*') DO (
+  set /A memeNum+=1
+)
 
-:GRAVITY
-set /p defaultGravity=Use default gravities [Y/n]? 
-if /i "x%defaultGravity%x" EQU "xnx" echo -- chose both Gravities among: %GRAVITIES%
-if /i "x%defaultGravity%x" EQU "xnx" set /p gtop=gtop [%gtop%]? 
-if /i "x%defaultGravity%x" EQU "xnx" set /p gbottom=gbottom [%gbottom%]? 
-
+call :logDEBUG output= %~n1-meme-%memeNum%-%Color%.%output_Extension%
 goto :EOF
+
 
 REM set name=%~dpn1
 REM set name=Z:\Dropbox\Dropbox_lolo\Dropbox\Public\img\blog\EnlighterJS
@@ -82,7 +182,7 @@ REM -fill white -stroke none      -annotate 0 "EnlighterJS" ^
 REM -gravity south ^
 REM -background none -stroke black -strokewidth 7  -annotate 0 "for WordPress" ^
 REM -fill white -stroke none      -annotate 0 "for WordPress" ^
-REM %~n1-meme.%extension%
+REM %~n1-meme-%memeNum%.%output_Extension%
 REM pause
 
 ::ATTENTION bug if lines do not start with space!!!
@@ -104,11 +204,17 @@ REM magick convert -size 280x100 pattern:SMALLFISHSCALES ^
   REM %name%-meme-test.png
 ::
 
-:IDENTIFY
+:getSIZE
 :: IT WORKS!!!! but you have to define the size of the layers. Both commands are equivalent:
-rem FOR /F "tokens=* USEBACKQ" %%s IN (`magick identify -format "%%[fx:w]x%%[fx:h]" %1`) DO SET SIZE=%%s
+rem FOR /F "tokens=* USEBACKQ" %%s IN (`magick getSIZE -format "%%[fx:w]x%%[fx:h]" %1`) DO SET SIZE=%%s
 FOR /F "tokens=* USEBACKQ" %%s IN (`magick convert  -ping %1 -format "%%wx%%h" info:`) DO SET SIZE=%%s
 echo SIZE=%SIZE%
+
+for /f "tokens=1,2" %%a in ("%SIZE:x= %") DO (
+  set width=%%a
+  set height=%%b
+)
+call :logDEBUG SIZE=%SIZE%
 goto :EOF
 
 :::::::::::::::::::::::::::::::::::::::::::::::::
@@ -127,13 +233,13 @@ rem -set option:distort:scale 4   -distort DePolar -1 ^
 rem -virtual-pixel Edge   -motion-blur 0x28-90 ^
 rem -virtual-pixel HorizontalTile -background Black ^
 rem -set option:distort:scale .25 -distort Polar -1 ^
-rem %QUALITY% %~n1-meme.%extension%
+rem %QUALITY% %~n1-meme-%memeNum%.%output_Extension%
 
 rem Barrel Distortion like old Fallout TV screen
 rem magick convert %1 %OPTIONS% ^
 rem -virtual-pixel gray -distort Barrel "0.2 0.0 0.0 1.5" ^
-rem %QUALITY% %~n1-meme.%extension%
-rem %~dpn1-meme.%extension%
+rem %QUALITY% %~n1-meme-%memeNum%.%output_Extension%
+rem %~dpn1-meme-%memeNum%.%output_Extension%
 rem exit
 
 rem ULTRA blur 1: these are equal:
@@ -147,36 +253,97 @@ rem magick convert %1 %OPTIONS% ^
 rem -virtual-pixel edge -distort DePolar -1 ^
 rem -morphology Convolve Blur:0x%rsigma%,90 ^
 rem -virtual-pixel HorizontalTile -background black -distort Polar -1 ^
-rem %~dpn1-meme.%extension%
-rem %~dpn1-meme.%extension%
+rem %~dpn1-meme-%memeNum%.%output_Extension%
 
 rem pause
 rem exit
 :::::::::::::::::::::::::::::::::::::::::::::::::
-set transparency=0.7
 
-:CONVERT
+:CONVERT input output
+call :logDEBUG magick convert %1 %OPTIONS% ^
+%resize% ^
+-gravity %gTOP% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_Size% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateTOP%" -blur 0x1  ^) ^
+-composite -font Impact -pointsize %scaledPoint_Size% -fill rgba^(%Color%,1^) -stroke none      -annotate 0 "%annotateTOP%" ^
+-gravity %gBOTTOM% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_Size% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateBOTTOM%" -blur 0x1  ^) ^
+-font Impact -pointsize %scaledPoint_Size% -fill rgba(%Color%,1) -stroke none      -annotate 0 "%annotateBOTTOM%" -composite ^
+%backgroundColor% ^
+%QUALITY% ^
+%2
+
 magick convert %1 %OPTIONS% ^
-  -gravity %gTOP% ^
-  ( -size %SIZE% xc:none -font Impact -pointsize %pointSize% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%top%" -blur 0x1  ) -composite ^
-  -font Impact -pointsize %pointSize% -fill rgba(255,255,255,1) -stroke none      -annotate 0 "%top%" ^
-  -gravity %gBOTTOM% ^
-  ( -size %SIZE% xc:none -font Impact -pointsize %pointSize% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%bottom%" -blur 0x1  ) ^
-  -font Impact -pointsize %pointSize% -fill rgba(255,255,255,1) -stroke none      -annotate 0 "%bottom%" -composite ^
-  %QUALITY% ^
-  "%~n1-meme.%extension%"
-::
+%resize% ^
+-gravity %gTOP% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_Size% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateTOP%" -blur 0x1  ^) ^
+-composite -font Impact -pointsize %scaledPoint_Size% -fill rgba(%Color%,1) -stroke none      -annotate 0 "%annotateTOP%" ^
+-gravity %gBOTTOM% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_Size% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateBOTTOM%" -blur 0x1  ^) ^
+-font Impact -pointsize %scaledPoint_Size% -fill rgba(%Color%,1) -stroke none      -annotate 0 "%annotateBOTTOM%" -composite ^
+%backgroundColor% ^
+%QUALITY% ^
+%2
+
 goto :EOF
 
-:OPTIMIZE
+:OPTIMIZE input
 ::quick png optimization of the output
-if "%extension%" EQU "png" (
-rem   call S:\wintools\multimedia\pngquant-optimizer+ordered-q10.cmd inplace "%~dpn1-meme.png"
-  call S:\wintools\multimedia\pngquant-optimizer-quality_v1.cmd inplace "%~dpn1-meme.png"
+REM call S:\wintools\multimedia\pngquant-optimizer+ordered-q10.cmd inplace "%~dpn1-meme-%memeNum%.png"
+if /I "%~x1"==".png" (
+  echo.%HIGH%%k%
+  call pngquant-optimizer-quality_v1.cmd inplace %1 colors256 quality50-70
+  echo.%END%
 )
 goto :EOF
 
-:END
-::launch the file in your default viewer
-"%~dpn1-meme.%extension%"
+:getHisto [tag]
+IF EXIST %history% (
+  IF "%1"=="" (for /f "tokens=*" %%t in (%history%) do set "%%t") ELSE for /f "tokens=*" %%t in ('findstr /I /B %1 %history%') do set "%%t"
+) ELSE exit /b 1
+goto :EOF
+
+:putHisto tag[s]
+for %%t in (%*) DO (call echo %%t=%%%%t%%)>>%history%
+goto :EOF
+
+:set_colors
+set colorCompatibleVersions=-8-8.1-10-2016-2019-
+IF DEFINED WindowsVersion IF "%colorCompatibleVersions:-!WindowsVersion!-=_%"=="%colorCompatibleVersions%" exit /b 1
+
+set END=[0m
+set HIGH=[1m
+set Underline=[4m
+set REVERSE=[7m
+
+REM echo [101;93m NORMAL FOREGROUND COLORS [0m
+set k=[30m
+set r=[31m
+set g=[32m
+set y=[33m
+set b=[34m
+set m=[35m
+set c=[36m
+set w=[37m
+
+REM echo [101;93m NORMAL BACKGROUND COLORS [0m
+set RK=[40m
+set RR=[41m
+set RG=[42m
+set RY=[43m
+set RB=[44m
+set RM=[45m
+set RC=[46m
+set RW=[47m
+
+goto :EOF
+:: BUG: some space are needed after :set_colors
+
+
+:logDEBUG
+IF DEFINED DEBUG echo %m%DEBUG: %*%END%
+goto :EOF
+
+:len
+:: https://stackoverflow.com/questions/5837418/how-do-you-get-the-string-length-in-a-batch-file/8566001#8566001
+call echo]%%%1%%>%TMP%\%~n0.tmp & FOR %%? IN (%TMP%\%~n0.tmp) DO SET /A strlength=%%~z? - 3
+exit /b %strlength%
+
+
+:end
 rem pause
