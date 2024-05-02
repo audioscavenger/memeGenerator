@@ -1,11 +1,11 @@
 @echo OFF
-pushd %~dp1
+pushd %~sdp1
 setlocal enabledelayedexpansion
 
 :top
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 set author=ScavengeR
-set version=1.9.2
+set version=1.9.3
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :: * TODO
 :: 1.0 enhancements and bug-fixes:
@@ -17,6 +17,7 @@ set version=1.9.2
 ::     9.  cosmetics + :logDEBUG
 ::     9.1 fixed PATH
 ::     9.2 fixed spaces in names
+::     9.3 protect paths using short names
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 REM convert original.png -fuzz 10% -transparent white transparent.png
@@ -29,12 +30,12 @@ REM magick aaa.png -background "rgba(255,255,0,0.5)" -flatten yellowBackTransp.p
 set DEBUG=true
 set "PATH=%PATH%;%~d0\wintools\PortableApps\Magick;%~d0\wintools\multimedia"
 set TITLE=meme Generator %version% by @%author%
-set history=%~dpn1.ini
+set history=%~sdpn1.ini
 call :set_colors
 
 :defaults
 :: guess next output file number
-for %%m in ("%~dpn1-meme-*.%output_Extension%") do set /A memeNum+=1
+for %%m in ("%~sdpn1-meme-*.%output_Extension%") do set /A memeNum+=1
 
 set labelWidth=30
 set output_Extension=%~x1
@@ -101,11 +102,14 @@ del /f /q "%history%"
 call :putHisto version output_Extension jpegQuality Blur_Background Blur_Level Radial_Blur rsigma Sharpen_Background sharpen Point_Size Color Scale Change_Default_Gravities gTOP annotateTOP gBOTTOM annotateBOTTOM
 :: :setOPTIONS will set memeNum, quality, point size etc
 call :setOPTIONS %1
-call :CONVERT %1 "%~dpn1-meme-%memeNum%-%Color%.%output_Extension%"
-call :OPTIMIZE "%~dpn1-meme-%memeNum%-%Color%.%output_Extension%"
+REM call :CONVERT %1 "%~sdpn1-meme-%memeNum%-%Color%.%output_Extension%"
+REM call :OPTIMIZE "%~sdpn1-meme-%memeNum%-%Color%.%output_Extension%"
+call :CONVERT %1 "%~sdpn1-meme-%memeNum%.%output_Extension%"
+call :OPTIMIZE "%~sdpn1-meme-%memeNum%.%output_Extension%"
 
 ::launch the file in your default viewer
-start "" "%~dpn1-meme-%memeNum%-%Color%.%output_Extension%"
+REM start "" "%~sdpn1-meme-%memeNum%-%Color%.%output_Extension%"
+start "" "%~sdpn1-meme-%memeNum%.%output_Extension%"
 goto :menu
 goto :end
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -154,15 +158,16 @@ IF %Scale% NEQ 100 set "resize=-resize %Scale%%%"
 set /A scaledPoint_Size=Point_Size*Scale/100
 
 set memeNum=1
-for /f %%f in ('dir /b %~dpn1-meme-*.*') DO (
+for /f %%f in ('dir /b %~sdpn1-meme-*.*') DO (
   set /A memeNum+=1
 )
 
-call :logDEBUG output= %~n1-meme-%memeNum%-%Color%.%output_Extension%
+REM call :logDEBUG output= %~n1-meme-%memeNum%-%Color%.%output_Extension%
+call :logDEBUG output= %~n1-meme-%memeNum%.%output_Extension%
 goto :EOF
 
 
-REM set name=%~dpn1
+REM set name=%~sdpn1
 REM set name=Z:\Dropbox\Dropbox_lolo\Dropbox\Public\img\blog\EnlighterJS
 
 ::https://imgflip.com/i/21kiar
@@ -240,7 +245,7 @@ rem Barrel Distortion like old Fallout TV screen
 rem magick convert %1 %OPTIONS% ^
 rem -virtual-pixel gray -distort Barrel "0.2 0.0 0.0 1.5" ^
 rem %QUALITY% %~n1-meme-%memeNum%.%output_Extension%
-rem %~dpn1-meme-%memeNum%.%output_Extension%
+rem %~sdpn1-meme-%memeNum%.%output_Extension%
 rem exit
 
 rem ULTRA blur 1: these are equal:
@@ -254,7 +259,7 @@ rem magick convert %1 %OPTIONS% ^
 rem -virtual-pixel edge -distort DePolar -1 ^
 rem -morphology Convolve Blur:0x%rsigma%,90 ^
 rem -virtual-pixel HorizontalTile -background black -distort Polar -1 ^
-rem %~dpn1-meme-%memeNum%.%output_Extension%
+rem %~sdpn1-meme-%memeNum%.%output_Extension%
 
 rem pause
 rem exit
@@ -285,7 +290,7 @@ goto :EOF
 
 :OPTIMIZE input
 ::quick png optimization of the output
-REM call S:\wintools\multimedia\pngquant-optimizer+ordered-q10.cmd inplace "%~dpn1-meme-%memeNum%.png"
+REM call S:\wintools\multimedia\pngquant-optimizer+ordered-q10.cmd inplace "%~sdpn1-meme-%memeNum%.png"
 if /I "%~x1"==".png" (
   echo.%HIGH%%k%
   call pngquant-optimizer-quality_v1.cmd inplace %1 colors256 quality50-70
