@@ -1,11 +1,10 @@
 @echo OFF
 pushd %~sdp1
-setlocal enabledelayedexpansion
 
 :top
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 set author=ScavengeR
-set version=1.9.7
+set version=1.9.9
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :: * TODO
 :: 1.0 enhancements and bug-fixes:
@@ -22,6 +21,8 @@ set version=1.9.7
 ::     9.5 fixed memeNum increment
 ::     9.6 now use Colors by name and convert to rgb
 ::     9.7 now saves ColorTOP/BOTTOM and Point_SizeTOP/BOTTOM
+::     9.8 more colors, betterquestions, better workflow
+::     9.9 bugfix
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 REM convert original.png -fuzz 10% -transparent white transparent.png
@@ -45,7 +46,9 @@ set memeNum=1
 set labelWidth=30
 set output_Extension=%~x1
 set output_Extension=%output_Extension:.=%
-set jpegQuality=50
+set jpegQuality=60
+set webpQuality=75
+set avifQuality=60
 
 set Blur_Background=n
 set Blur_Level=1
@@ -59,12 +62,24 @@ set Point_Size_Ratio=5
 set backgroundAlpha=0.5
 set Scale=100
 
-set Colors=white %r%red %g%green %b%blue %HIGH%%k%grey %END%
+set     ColorsRGB=%HIGH% white  %END%lightgray %END%%r%crimson %HIGH%  red  %END%%g%limegreen %HIGH%   lime    %END%%b%blue %HIGH%royalblue %END%
+set ColorsYMCK=%HIGH%%k%dimgray %END%%y%goldenrod %HIGH%yellow  %END%%m%purple %HIGH% magenta  %END%%c%dodgerblue %HIGH%cyan %k%  black %END%
 set ColorWhite=255,255,255
-set ColorGrey=224,224,224
+set Colorlightgray=211,211,211
+set Colordimgray=105,105,105
+set Colorcrimson=220,20,60
 set ColorRed=255,0,0
-set ColorGreen=0,255,0
+set ColorLimeGreen=50,205,50
+set Colorlime=0,255,0
 set ColorBlue=0,0,255
+set Colorroyalblue=65,105,225
+set Colorgoldenrod=218,165,32
+set ColorYellow=255,255,170
+set Colorpurple=128,0,128
+set ColorMagenta=255,0,255
+set Colordodgerblue=30,144,255
+set ColorCyan=0,255,255
+set ColorBlack=10,10,10
 
 :: TOP/BOTTOM is really just annotation 1 and 2, gravity decides where they go
 set GRAVITIES_prompt=NorthWest %c%North%END% NorthEast West Center East SouthWest %c%South%END% SouthEast
@@ -102,49 +117,50 @@ call :promptOption rsigma Radial_Blur
 call :promptOption Sharpen_Background
 call :promptOption Scale
 
+:menu_text
+echo ------------ Default gravities: %GRAVITIES_prompt%
 call :promptOption Change_Default_Gravities
-IF /I NOT %Change_Default_Gravities%==n (
+IF /I "%Change_Default_Gravities%"=="y" (
   echo:
-  echo ------------ Default gravities: %GRAVITIES_prompt%
   call :promptOption gTOP Change_Default_Gravities
   call :promptOption gBOTTOM Change_Default_Gravities
 )
 
-:menu_text
 echo:
 IF NOT DEFINED Point_SizeTOP    set Point_SizeTOP=%Point_Size%
 IF NOT DEFINED ColorTOP         set ColorTOP=%Color%
 IF NOT DEFINED Point_SizeBOTTOM set Point_SizeBOTTOM=%Point_Size%
 IF NOT DEFINED ColorBOTTOM      set ColorBOTTOM=%Color%
 
-echo --------------- Default colors: %Colors%
-IF /I %Change_Default_Gravities%==n (
-  call :promptOption Point_Size
-  call :promptOption Color
-) ELSE (
-  call :promptOption Point_SizeTOP
+echo --------------- Default colors: %ColorsRGB%
+echo                                 %ColorsYMCK%
+IF /I "%Change_Default_Gravities%"=="y" (
+  REM call :promptOption Color
+  REM call :promptOption Point_Size
+REM ) ELSE (
   call :promptOption ColorTOP
-  echo:
-  call :promptOption Point_SizeBOTTOM
   call :promptOption ColorBOTTOM
+  echo:
+  call :promptOption Point_SizeTOP
+  call :promptOption Point_SizeBOTTOM
 )
-IF /I %Change_Default_Gravities%==n (
-  set Point_SizeTOP=%Point_Size%
-  set ColorTOP=%Color%
-  set Point_SizeBOTTOM=%Point_Size%
-  set ColorBOTTOM=%Color%
-)
+REM IF /I %Change_Default_Gravities%==n (
+  REM set Point_SizeTOP=%Point_Size%
+  REM set ColorTOP=%Color%
+  REM set Point_SizeBOTTOM=%Point_Size%
+  REM set ColorBOTTOM=%Color%
+REM )
 call :promptOption annotateTOP noshift
 call :promptOption annotateBOTTOM noshift
 
 :: TODO: offer more colors, or a way to detect if user entered rgb in the first place
-call set "rgbColorTOP=%%Color%ColorTOP%%%"
-call set "rgbColorBOTTOM=%%Color%ColorBOTTOM%%%"
+call set rgbColorTOP=%%Color%ColorTOP%%%
+call set rgbColorBOTTOM=%%Color%ColorBOTTOM%%%
 
 :main
 :: why deleting it? we simply append more and more stuff to it!
 REM del /f /q "%history%"
-call :putHisto version output_Extension jpegQuality Blur_Background Blur_Level Radial_Blur rsigma Sharpen_Background Scale sharpen Change_Default_Gravities gTOP Point_SizeTOP ColorTOP annotateTOP gBOTTOM Point_SizeBOTTOM ColorBOTTOM annotateBOTTOM
+call :putHisto version output_Extension extensionQuality Blur_Background Blur_Level Radial_Blur rsigma Sharpen_Background Scale sharpen Change_Default_Gravities gTOP Point_SizeTOP ColorTOP annotateTOP gBOTTOM Point_SizeBOTTOM ColorBOTTOM annotateBOTTOM
 :: :calculateOPTIONS will set memeNum, quality, point size etc
 call :calculateOPTIONS %1
 REM call :CONVERT %1 "%~sdpn1-meme-%memeNum%.%output_Extension%"
@@ -167,10 +183,12 @@ IF /I "%dependent%"=="n" exit /b 0
 call set label=%1? 
 set label=%label:_= %                                     
 call set labelOption=%%%1%%
-call :len labelOption || set /A labelLeft=labelWidth-!ERRORLEVEL!-2
-IF /I "%2"=="noshift" set /A labelLeft=labelWidth-2
+call :len labelOption
+set len=%ERRORLEVEL%
+set /A labelLeft=labelWidth-len-2
+IF /I "%2"=="noshift" set /A labelLeft=labelWidth-1
 
-set label=!label:~0,%labelLeft%!
+call set label=%%label:~0,%labelLeft%%%
 set /p %1=%label% [%y%%labelOption%%END%] 
 goto :EOF
 
@@ -183,6 +201,9 @@ goto :EOF
 :: set the blur level here: 0x1 to 0x6 heavy blur to 0x30 iPhone blur / single digit for soft blur http://www.imagemagick.org/script/command-line-options.php#blur
 if /i "%Blur_Background%" EQU "y"    set OPTIONS=%OPTIONS% -blur 0x%Blur_Level%
 
+:: try and transmit metadata and Exif
+set OPTIONS=%OPTIONS% -define %output_Extension%:exif-properties=true
+
 :: rsigma: 5-30
 if /i "%Radial_Blur%" EQU "y"        set OPTIONS=%OPTIONS% -virtual-pixel edge -distort DePolar -1 -morphology Convolve Blur:0x%rsigma%,90 -virtual-pixel HorizontalTile -background black -distort Polar -1
 
@@ -190,7 +211,8 @@ if /i "%Radial_Blur%" EQU "y"        set OPTIONS=%OPTIONS% -virtual-pixel edge -
 :: -adaptive-sharpen 4x6 = Adjust sharpening so that it is restricted to close to image edges as defined by edge detection.
 if /i "%Sharpen_Background%" EQU "y" set OPTIONS=%OPTIONS% -sharpen %sharpen%
 
-set QUALITY=-quality %jpegQuality%
+call set extensionQuality=%%%output_Extension%Quality%%
+set QUALITY=-quality %extensionQuality%
 
 :: https://imagemagick.org/script/color.php
 :: TODO: we base the background color off TOP color only
@@ -310,6 +332,8 @@ rem exit
 :::::::::::::::::::::::::::::::::::::::::::::::::
 
 :CONVERT input output
+set extension=%~x2
+
 call :logDEBUG magick convert %1 %OPTIONS% ^
 %resizeTOP% ^
 -gravity %gTOP% ^( -size %SIZE% xc:none -font Impact -pointsize %scaledPoint_SizeTOP% -stroke rgba(0,0,0,1) -strokewidth 7 -annotate 0 "%annotateTOP%" -blur 0x1  ^) ^
@@ -338,7 +362,7 @@ REM call S:\wintools\multimedia\pngquant-optimizer+ordered-q10.cmd inplace "%~sd
 if /I "%~x1"==".png" (
   echo.%HIGH%%k%
   REM :: BUG: occasionally, pngquant will fail if max quality<96 ... how do we deal with this?
-  call pngquant-optimizer-quality_v1.cmd inplace %1 colors256 quality1-80
+  call pngquant-optimizer-quality_v1.cmd inplace %1 colors256 quality1-90
   echo.%END%
 )
 goto :EOF
