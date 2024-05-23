@@ -49,6 +49,7 @@ set output_Extension=%output_Extension:.=%
 set jpegQuality=60
 set webpQuality=75
 set avifQuality=60
+set pngQuality=
 
 set Blur_Background=n
 set Blur_Level=1
@@ -211,8 +212,9 @@ if /i "%Radial_Blur%" EQU "y"        set OPTIONS=%OPTIONS% -virtual-pixel edge -
 :: -adaptive-sharpen 4x6 = Adjust sharpening so that it is restricted to close to image edges as defined by edge detection.
 if /i "%Sharpen_Background%" EQU "y" set OPTIONS=%OPTIONS% -sharpen %sharpen%
 
+set QUALITY=
 call set extensionQuality=%%%output_Extension%Quality%%
-set QUALITY=-quality %extensionQuality%
+IF DEFINED extensionQuality set QUALITY=-quality %extensionQuality%
 
 :: https://imagemagick.org/script/color.php
 :: TODO: we base the background color off TOP color only
