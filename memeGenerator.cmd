@@ -3,8 +3,8 @@ pushd %~sdp1
 
 :top
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-set author=ScavengeR
-set version=1.9.9
+set author=AudioscavengeR
+set version=2.0.0
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :: * TODO
 :: 1.0 enhancements and bug-fixes:
@@ -23,16 +23,17 @@ set version=1.9.9
 ::     9.7 now saves ColorTOP/BOTTOM and Point_SizeTOP/BOTTOM
 ::     9.8 more colors, betterquestions, better workflow
 ::     9.9 bugfix
+::   2.0.0 README.md
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 REM convert original.png -fuzz 10% -transparent white transparent.png
 REM where the smaller the fuzz %, the closer to true white or conversely, the larger the %, the more variation from white is allowed to become transparent
 
 REM magick aaa.png -background "rgba(255,255,0,0.5)" -flatten yellowBackTransp.png
+REM set DEBUG=true
 
 :start
-::replace S:\wintools\multimedia by your path with magick, pngquant and optipng
-REM set DEBUG=true
+::replace S:\wintools\multimedia by your path with magick, and add paths where pngquant and optipng are:
 set "PATH=%PATH%;%~d0\wintools\PortableApps\Magick;%~d0\wintools\multimedia"
 set TITLE=meme Generator %version% by @%author%
 set history=%~sdpn1.ini
